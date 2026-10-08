@@ -7,7 +7,7 @@ local OTC = loadstring(game:HttpGet("https://raw.githubusercontent.com/aerlrobos
 local Window = OTC:CreateWindow({
     Name = "OTC Hub",
     Subtitle = "by Aerlro",
-    Theme = "Aurora",
+    Theme = "Default",
     ToggleKey = Enum.KeyCode.RightControl,
     Tags = { "Beta", { Title = "VIP", Color = Color3.fromRGB(255, 190, 60) } },
     Configuration = {
