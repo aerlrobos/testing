@@ -1249,6 +1249,11 @@ function Theme:Register(Name, Data)
         return false
     end
 
+    if Theme.IsPrivate(Name) then
+        warn("[OTC Hub] This theme name is reserved")
+        return false
+    end
+
     local NewTheme = DeepCopy(Theme.BuiltIn.Default)
 
     for Key, Value in pairs(Data) do
@@ -1260,8 +1265,18 @@ function Theme:Register(Name, Data)
     return true
 end
 
+-- the "Roman Reigns" theme belongs to the owner only: for everybody else it is
+-- removed from the theme table, so it cannot be listed, selected, saved or loaded
+if not IsRomanReignsUser() then
+    Theme.BuiltIn["Roman Reigns"] = nil
+end
+
 function Theme.IsPrivate(Name)
     return Name == "Roman Reigns"
+end
+
+function Theme.IsOwner()
+    return IsRomanReignsUser()
 end
 
 function Theme.IsAllowed(Name)

@@ -59,42 +59,68 @@ local function GetTheme(Object)
 
 end
 
-local function ApplyGradient(Object, GradientData)
+local function ToColorSequence(List)
+    local Count = #List
 
-    if not Object or not GradientData then
+    if Count == 1 then
+        return ColorSequence.new(List[1])
+    end
+
+    local Keypoints = {}
+
+    for Index, Color in ipairs(List) do
+        table.insert(
+            Keypoints,
+            ColorSequenceKeypoint.new((Index - 1) / (Count - 1), Color)
+        )
+    end
+
+    return ColorSequence.new(Keypoints)
+end
+
+-- GradientData can be a list of Color3 (built-in themes) or
+-- { Enabled = true, Colors = ColorSequence, Rotation = number } (old custom themes)
+local function ApplyGradient(Object, GradientData, Rotation)
+    if not Object then
         return nil
     end
 
-    local Existing =
-        Object:FindFirstChild(
-            "OTCGradient"
-        )
+    local Existing = Object:FindFirstChild("OTCGradient")
 
     if Existing then
         Existing:Destroy()
     end
 
-    if GradientData.Enabled ~= true then
+    if type(GradientData) ~= "table" then
         return nil
     end
 
-    local UIGradient =
-        Instance.new("UIGradient")
+    local Sequence
+    local GradientRotation
 
-    UIGradient.Name =
-        "OTCGradient"
+    if GradientData.Enabled ~= nil then
+        if GradientData.Enabled ~= true then
+            return nil
+        end
 
-    UIGradient.Color =
-        GradientData.Colors
-        or ColorSequence.new(
-            Color3.new(1, 1, 1)
-        )
+        Sequence = GradientData.Colors or ColorSequence.new(Color3.new(1, 1, 1))
+        GradientRotation = GradientData.Rotation
+    elseif typeof(GradientData[1]) == "Color3" then
+        Sequence = ToColorSequence(GradientData)
+    end
 
-    UIGradient.Rotation =
-        GradientData.Rotation or 0
+    if not Sequence then
+        return nil
+    end
 
-    UIGradient.Parent =
-        Object
+    -- the gradient is multiplied with the background colour, so use white
+    Object.BackgroundColor3 = Color3.new(1, 1, 1)
+
+    local UIGradient = Instance.new("UIGradient")
+    UIGradient.Name = "OTCGradient"
+    UIGradient.Color = Sequence
+    UIGradient.Rotation = GradientRotation or Rotation or 45
+    UIGradient.Parent = Object
 
     return UIGradient
 end
@@ -179,6 +205,15 @@ function Window.Create(
 
     local Object = {}
 
+    -- connections made on UserInputService are tracked and removed with the window
+    local TrackedConnections = {}
+
+    local function Track(Connection)
+        table.insert(TrackedConnections, Connection)
+
+        return Connection
+    end
+
     Object.OTC =
         OTC
 
@@ -218,8 +253,8 @@ function Window.Create(
     ScreenGui.Name =
         "OTC_Hub"
 
-    ScreenGui.ResetOnSpawn =
-        false
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.DisplayOrder = 100
 
     ScreenGui.ZIndexBehavior =
         Enum.ZIndexBehavior.Sibling
@@ -229,8 +264,7 @@ function Window.Create(
 
     pcall(function()
 
-        ScreenGui.Parent =
-            CoreGui
+        ScreenGui.Parent = (type(gethui) == "function" and gethui()) or CoreGui
 
     end)
 
@@ -253,10 +287,10 @@ function Window.Create(
         "Main"
 
     Main.Size =
-        UDim2.new(0, 640, 0, 420)
+        UDim2.new(0, 680, 0, 440)
 
     Main.Position =
-        UDim2.new(0.5, -320, 0.5, -210)
+        UDim2.new(0.5, -340, 0.5, -220)
 
     Main.BackgroundColor3 =
         Theme.Background
@@ -881,8 +915,10 @@ function Window.Create(
         CloseVersion.AutoButtonColor =
             false
 
-        CloseVersion.Text =
-            "×"
+        CloseVersion.Text = ""
+        if Object._MakeIcon then
+            Object._MakeIcon(CloseVersion, "Close", 14)
+        end
 
         CloseVersion.TextColor3 =
             CurrentTheme.Text
@@ -1043,56 +1079,8 @@ function Window.Create(
 
         end
 
-        for Index, UpdateText in ipairs(
-            CurrentUpdates
-        ) do
-
-            local Update =
-                Instance.new("TextLabel")
-
-            Update.Name =
-                "Update_" .. Index
-
-            Update.Size =
-                UDim2.new(
-                    1,
-                    0,
-                    0,
-                    24
-                )
-
-            Update.BackgroundTransparency =
-                1
-
-            Update.Font =
-                Enum.Font.Gotham
-
-            Update.Text =
-                "✓  " .. tostring(
-                    UpdateText
-                )
-
-            Update.TextColor3 =
-                CurrentTheme.Text
-
-            Update.TextSize =
-                12
-
-            Update.TextWrapped =
-                true
-
-            Update.TextXAlignment =
-                Enum.TextXAlignment.Left
-
-            Update.TextYAlignment =
-                Enum.TextYAlignment.Center
-
-            Update.ZIndex =
-                203
-
-            Update.Parent =
-                Updates
-
+        if Object._RenderChangelog then
+            Object._RenderChangelog(Updates, UpdatesLayout, CurrentTheme)
         end
 
         UpdatesLayout:GetPropertyChangedSignal(
@@ -1864,7 +1852,7 @@ function Window.Create(
         end
     )
 
-    UserInputService.InputChanged:Connect(
+    Track(UserInputService.InputChanged:Connect(
         function(Input)
 
             if Dragging
@@ -1892,7 +1880,7 @@ function Window.Create(
             end
 
         end
-    )
+    ))
 
     local MiniDragging =
         false
@@ -1936,7 +1924,7 @@ function Window.Create(
         end
     )
 
-    UserInputService.InputChanged:Connect(
+    Track(UserInputService.InputChanged:Connect(
         function(Input)
 
             if MiniDragging
@@ -1964,7 +1952,7 @@ function Window.Create(
             end
 
         end
-    )
+    ))
 
     function Object:GetTheme()
 
@@ -3453,22 +3441,233 @@ function Window.Create(
 
     end
 
-    --// ===== v1.0.2 additions =====
+    --// ===== v1.0.3 additions =====
     local RunService = game:GetService("RunService")
 
-    -- smooth open animation
-    local OpenScale = Instance.new("UIScale")
-    OpenScale.Name = "OpenScale"
-    OpenScale.Scale = 0.88
-    OpenScale.Parent = Main
+    ----------------------------------------------------------------
+    -- Image icons (replaces text glyphs)
+    ----------------------------------------------------------------
+    local DefaultIcons = {
+        Minimize = "rbxassetid://123120037399918",
+        Close = "rbxassetid://97642116681622",
+        Search = "rbxassetid://122340561776969"
+    }
 
-    Tween(
-        OpenScale,
-        TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-        { Scale = 1 }
-    )
+    local Icons = OTC.Icons or DefaultIcons
+    local IconTint = Settings.IconTint ~= false
+    local IconObjects = {}
 
-    -- animated accent line under the top bar
+    local function GetIconColor(ThemeData)
+        if not IconTint then
+            return Color3.new(1, 1, 1)
+        end
+
+        return ThemeData.Text
+    end
+
+    local function MakeIcon(IconParent, IconName, IconSize)
+        local Icon = Instance.new("ImageLabel")
+        Icon.Name = "Icon"
+        Icon.BackgroundTransparency = 1
+        Icon.AnchorPoint = Vector2.new(0.5, 0.5)
+        Icon.Position = UDim2.fromScale(0.5, 0.5)
+        Icon.Size = UDim2.fromOffset(IconSize, IconSize)
+        Icon.Image = Icons[IconName] or DefaultIcons[IconName] or ""
+        Icon.ScaleType = Enum.ScaleType.Fit
+        Icon.ImageColor3 = GetIconColor(GetTheme(Object))
+        Icon.ZIndex = IconParent.ZIndex + 1
+        Icon.Parent = IconParent
+
+        table.insert(IconObjects, Icon)
+
+        return Icon
+    end
+
+    Object._MakeIcon = MakeIcon
+
+    ----------------------------------------------------------------
+    -- Layout (floating islands)
+    ----------------------------------------------------------------
+    local PAD = 8
+    local SIDEBAR_WIDTH = 184
+    local HEADER_HEIGHT = 48
+    local ISLAND_RADIUS = 14
+
+    local function EnsureCorner(Target, Radius)
+        local Corner = Target:FindFirstChildOfClass("UICorner")
+
+        if not Corner then
+            Corner = Instance.new("UICorner")
+            Corner.Parent = Target
+        end
+
+        Corner.CornerRadius = UDim.new(0, Radius)
+    end
+
+    local function EnsureIslandStroke(Target, ThemeData)
+        local Stroke = Target:FindFirstChild("IslandStroke")
+
+        if not Stroke then
+            Stroke = Instance.new("UIStroke")
+            Stroke.Name = "IslandStroke"
+            Stroke.Parent = Target
+        end
+
+        local StrokeData = ThemeData.Stroke or {}
+
+        Stroke.Color = ThemeData.Border
+        Stroke.Thickness = 1
+        Stroke.Transparency = math.clamp((StrokeData.Transparency or 0) + 0.35, 0, 1)
+        Stroke.Enabled = StrokeData.Enabled ~= false
+    end
+
+    local PageTitle = Instance.new("TextLabel")
+    PageTitle.Name = "PageTitle"
+    PageTitle.BackgroundTransparency = 1
+    PageTitle.Position = UDim2.new(0, 16, 0, 0)
+    PageTitle.Size = UDim2.new(0, 170, 1, 0)
+    PageTitle.Font = Enum.Font.GothamBold
+    PageTitle.Text = ""
+    PageTitle.TextSize = 15
+    PageTitle.TextXAlignment = Enum.TextXAlignment.Left
+    PageTitle.TextTruncate = Enum.TextTruncate.AtEnd
+    PageTitle.TextColor3 = GetTheme(Object).Text
+    PageTitle.ZIndex = 3
+    PageTitle.Parent = TopBar
+
+    local AccentLine = Instance.new("Frame")
+    AccentLine.Name = "AccentLine"
+    AccentLine.BackgroundColor3 = Color3.new(1, 1, 1)
+    AccentLine.BorderSizePixel = 0
+    AccentLine.ZIndex = 5
+    AccentLine.Parent = TopBar
+
+    do
+        local LineCorner = Instance.new("UICorner")
+        LineCorner.CornerRadius = UDim.new(1, 0)
+        LineCorner.Parent = AccentLine
+    end
+
+    local AccentLineGradient = Instance.new("UIGradient")
+    AccentLineGradient.Parent = AccentLine
+
+    local DragArea = Instance.new("Frame")
+    DragArea.Name = "DragArea"
+    DragArea.BackgroundTransparency = 1
+    DragArea.Size = UDim2.new(1, 0, 0, 58)
+    DragArea.Parent = Sidebar
+
+    local function ApplyLayout()
+        local ThemeData = GetTheme(Object)
+        local Corners = ThemeData.Corners or {}
+        local Radius = Corners.Main or ISLAND_RADIUS
+
+        Radius = math.max(Radius, ISLAND_RADIUS)
+
+        Main.Size = UDim2.new(0, 680, 0, 440)
+
+        Sidebar.Position = UDim2.new(0, PAD, 0, PAD)
+        Sidebar.Size = UDim2.new(0, SIDEBAR_WIDTH, 1, -PAD * 2)
+
+        TopBar.Position = UDim2.new(0, PAD * 2 + SIDEBAR_WIDTH, 0, PAD)
+        TopBar.Size = UDim2.new(1, -(PAD * 3 + SIDEBAR_WIDTH), 0, HEADER_HEIGHT)
+
+        Content.Position = UDim2.new(0, PAD * 2 + SIDEBAR_WIDTH, 0, PAD * 2 + HEADER_HEIGHT)
+        Content.Size = UDim2.new(
+            1, -(PAD * 3 + SIDEBAR_WIDTH),
+            1, -(PAD * 3 + HEADER_HEIGHT)
+        )
+
+        for _, Island in ipairs({ Sidebar, TopBar, Content }) do
+            EnsureCorner(Island, Radius)
+            EnsureIslandStroke(Island, ThemeData)
+        end
+
+        -- brand block moves to the top of the sidebar
+        Logo.Parent = Sidebar
+        Logo.Position = UDim2.new(0, 12, 0, 11)
+        Logo.Size = UDim2.fromOffset(36, 36)
+
+        Title.Parent = Sidebar
+        Title.Position = UDim2.new(0, 56, 0, 10)
+        Title.Size = UDim2.new(1, -64, 0, 22)
+        Title.TextSize = 15
+        Title.TextTruncate = Enum.TextTruncate.AtEnd
+
+        Subtitle.Parent = Sidebar
+        Subtitle.Position = UDim2.new(0, 56, 0, 31)
+        Subtitle.Size = UDim2.new(1, -64, 0, 16)
+        Subtitle.TextSize = 11
+        Subtitle.TextTruncate = Enum.TextTruncate.AtEnd
+
+        TabsContainer.Position = UDim2.new(0, 8, 0, 62)
+        TabsContainer.Size = UDim2.new(1, -16, 1, -62 - 76)
+
+        MinimizeButton.Position = UDim2.new(1, -80, 0.5, -17)
+        CloseButton.Position = UDim2.new(1, -42, 0.5, -17)
+        VersionTag.Position = UDim2.new(1, -152, 0.5, -11)
+
+        AccentLine.Position = UDim2.new(0, 16, 1, -3)
+        AccentLine.Size = UDim2.new(1, -32, 0, 2)
+
+        PageTitle.TextColor3 = ThemeData.Text
+
+        -- image icons keep the theme colour
+        for _, Icon in ipairs(IconObjects) do
+            if Icon.Parent then
+                Icon.ImageColor3 = GetIconColor(ThemeData)
+            end
+        end
+    end
+
+    MinimizeButton.Text = ""
+    CloseButton.Text = ""
+
+    local MinimizeIcon = MakeIcon(MinimizeButton, "Minimize", 16)
+    local CloseIcon = MakeIcon(CloseButton, "Close", 14)
+
+    local function IconHover(Button, Icon, Danger)
+        Button.MouseEnter:Connect(function()
+            local ThemeData = GetTheme(Object)
+            local Target = Danger and (ThemeData.Error or Color3.fromRGB(255, 90, 90)) or ThemeData.Accent
+
+            if IconTint then
+                Tween(Icon, TweenInfo.new(0.15), { ImageColor3 = Target })
+            end
+        end)
+
+        Button.MouseLeave:Connect(function()
+            if IconTint then
+                Tween(Icon, TweenInfo.new(0.15), { ImageColor3 = GetIconColor(GetTheme(Object)) })
+            end
+        end)
+    end
+
+    IconHover(MinimizeButton, MinimizeIcon, false)
+    IconHover(CloseButton, CloseIcon, true)
+
+    ----------------------------------------------------------------
+    -- Sidebar header is draggable too
+    ----------------------------------------------------------------
+    DragArea.InputBegan:Connect(function(Input)
+        if Input.UserInputType == Enum.UserInputType.MouseButton1
+            or Input.UserInputType == Enum.UserInputType.Touch then
+
+            Dragging = true
+            DragStart = Input.Position
+            StartPosition = Main.Position
+
+            Input.Changed:Connect(function()
+                if Input.UserInputState == Enum.UserInputState.End then
+                    Dragging = false
+                end
+            end)
+        end
+    end)
+
+    ----------------------------------------------------------------
+    -- Accent line (animated gradient)
+    ----------------------------------------------------------------
     local function ToSequence(Value)
         if typeof(Value) == "ColorSequence" then
             return Value
@@ -3503,30 +3702,16 @@ function Window.Create(
         return ColorSequence.new(Keypoints)
     end
 
-    local AccentLine = Instance.new("Frame")
-    AccentLine.Name = "AccentLine"
-    AccentLine.Size = UDim2.new(1, 0, 0, 2)
-    AccentLine.Position = UDim2.new(0, 0, 0, 60)
-    AccentLine.BackgroundColor3 = Color3.new(1, 1, 1)
-    AccentLine.BorderSizePixel = 0
-    AccentLine.ZIndex = 5
-    AccentLine.Parent = Main
-
-    local AccentLineGradient = Instance.new("UIGradient")
-    AccentLineGradient.Parent = AccentLine
-
     local function ApplyAccentLine(ThemeData)
         local Gradients = ThemeData.Gradients or {}
         local Source = Gradients.Accent
 
-        if not Source then
+        if type(Source) ~= "table" or typeof(Source[1]) ~= "Color3" then
             Source = { ThemeData.Accent, ThemeData.AccentDark or ThemeData.Accent }
         end
 
         AccentLineGradient.Color = ToSequence(Source)
     end
-
-    ApplyAccentLine(GetTheme(Object))
 
     local AccentConnection = RunService.Heartbeat:Connect(function()
         if Object.Closed or not AccentLine.Parent or Object.Minimized then
@@ -3543,16 +3728,368 @@ function Window.Create(
         AccentLineGradient.Offset = Vector2.new(math.sin(os.clock() * 0.9) * 0.3, 0)
     end)
 
-    ScreenGui.Destroying:Connect(function()
-        AccentConnection:Disconnect()
+    Track(AccentConnection)
+
+    ----------------------------------------------------------------
+    -- Open animation
+    ----------------------------------------------------------------
+    local OpenScale = Instance.new("UIScale")
+    OpenScale.Name = "OpenScale"
+    OpenScale.Scale = 0.88
+    OpenScale.Parent = Main
+
+    Tween(
+        OpenScale,
+        TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+        { Scale = 1 }
+    )
+
+    ----------------------------------------------------------------
+    -- Search (filters the elements of every tab)
+    ----------------------------------------------------------------
+    local SearchHolder = Instance.new("Frame")
+    SearchHolder.Name = "Search"
+    SearchHolder.AnchorPoint = Vector2.new(1, 0.5)
+    SearchHolder.Position = UDim2.new(1, -160, 0.5, 0)
+    SearchHolder.Size = UDim2.fromOffset(34, 34)
+    SearchHolder.BackgroundColor3 = GetTheme(Object).Element
+    SearchHolder.BorderSizePixel = 0
+    SearchHolder.ClipsDescendants = true
+    SearchHolder.ZIndex = 6
+    SearchHolder.Parent = TopBar
+
+    do
+        local SearchCorner = Instance.new("UICorner")
+        SearchCorner.CornerRadius = UDim.new(0, 10)
+        SearchCorner.Parent = SearchHolder
+    end
+
+    local SearchStroke = Instance.new("UIStroke")
+    SearchStroke.Color = GetTheme(Object).Border
+    SearchStroke.Transparency = 0.5
+    SearchStroke.Parent = SearchHolder
+
+    local SearchButton = Instance.new("TextButton")
+    SearchButton.Name = "SearchButton"
+    SearchButton.BackgroundTransparency = 1
+    SearchButton.Size = UDim2.fromOffset(34, 34)
+    SearchButton.Text = ""
+    SearchButton.AutoButtonColor = false
+    SearchButton.ZIndex = 7
+    SearchButton.Parent = SearchHolder
+
+    local SearchIcon = MakeIcon(SearchButton, "Search", 16)
+
+    local SearchBox = Instance.new("TextBox")
+    SearchBox.Name = "SearchBox"
+    SearchBox.BackgroundTransparency = 1
+    SearchBox.Position = UDim2.new(0, 34, 0, 0)
+    SearchBox.Size = UDim2.new(1, -42, 1, 0)
+    SearchBox.Font = Enum.Font.Gotham
+    SearchBox.PlaceholderText = "Search..."
+    SearchBox.Text = ""
+    SearchBox.TextSize = 12
+    SearchBox.TextXAlignment = Enum.TextXAlignment.Left
+    SearchBox.ClearTextOnFocus = false
+    SearchBox.TextColor3 = GetTheme(Object).Text
+    SearchBox.PlaceholderColor3 = GetTheme(Object).SubText
+    SearchBox.ZIndex = 7
+    SearchBox.Parent = SearchHolder
+
+    local NoResults = Instance.new("TextLabel")
+    NoResults.Name = "NoResults"
+    NoResults.BackgroundTransparency = 1
+    NoResults.AnchorPoint = Vector2.new(0.5, 0.5)
+    NoResults.Position = UDim2.fromScale(0.5, 0.5)
+    NoResults.Size = UDim2.new(1, -40, 0, 24)
+    NoResults.Font = Enum.Font.GothamMedium
+    NoResults.Text = "No results"
+    NoResults.TextSize = 13
+    NoResults.TextColor3 = GetTheme(Object).SubText
+    NoResults.Visible = false
+    NoResults.Parent = Content
+
+    local SearchOpen = false
+
+    local function ElementText(Element)
+        local Root = Element.Instance
+
+        if not Root then
+            return ""
+        end
+
+        local Parts = {}
+
+        for _, Descendant in ipairs(Root:GetDescendants()) do
+            if (Descendant:IsA("TextLabel") or Descendant:IsA("TextButton"))
+                and Descendant.Text ~= "" then
+                table.insert(Parts, Descendant.Text)
+            end
+        end
+
+        return string.lower(table.concat(Parts, " "))
+    end
+
+    local function UpdateNoResults(Query)
+        local Tab = Object.SelectedTab
+
+        if Query == "" or not Tab then
+            NoResults.Visible = false
+            return
+        end
+
+        for _, Element in ipairs(Tab.Elements) do
+            if Element.Instance and Element.Instance.Visible then
+                NoResults.Visible = false
+                return
+            end
+        end
+
+        NoResults.Visible = true
+    end
+
+    local function ApplySearch(Query)
+        Query = string.lower((tostring(Query or ""):gsub("^%s+", ""):gsub("%s+$", "")))
+
+        for _, Tab in ipairs(Object.Tabs) do
+            for _, Element in ipairs(Tab.Elements) do
+                local Root = Element.Instance
+
+                if Root then
+                    if Query == "" then
+                        Root.Visible = true
+                    elseif Element.Type == "Space"
+                        or Element.Type == "Divider"
+                        or Element.Type == "Section" then
+                        Root.Visible = false
+                    else
+                        Root.Visible = string.find(ElementText(Element), Query, 1, true) ~= nil
+                    end
+                end
+            end
+        end
+
+        UpdateNoResults(Query)
+    end
+
+    local function SetSearchOpen(State)
+        SearchOpen = State
+
+        Tween(
+            SearchHolder,
+            TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+            { Size = UDim2.fromOffset(State and 200 or 34, 34) }
+        )
+
+        Tween(
+            PageTitle,
+            TweenInfo.new(0.2),
+            { TextTransparency = State and 1 or 0 }
+        )
+
+        if State then
+            SearchBox:CaptureFocus()
+        else
+            SearchBox.Text = ""
+            SearchBox:ReleaseFocus()
+        end
+    end
+
+    SearchButton.MouseButton1Click:Connect(function()
+        SetSearchOpen(not SearchOpen)
     end)
 
-    -- tags next to the version badge
+    SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        ApplySearch(SearchBox.Text)
+    end)
+
+    SearchBox.FocusLost:Connect(function()
+        if SearchBox.Text == "" and SearchOpen then
+            SetSearchOpen(false)
+        end
+    end)
+
+    IconHover(SearchButton, SearchIcon, false)
+
+    Object.Search = ApplySearch
+
+    local BaseSelectTab = Object.SelectTab
+
+    function Object:SelectTab(TabObject)
+        BaseSelectTab(self, TabObject)
+
+        if TabObject then
+            PageTitle.Text = tostring(TabObject.Name or "")
+        end
+
+        UpdateNoResults(string.lower(SearchBox.Text))
+    end
+
+    ----------------------------------------------------------------
+    -- Changelog renderer ([REMOVED] [ADDED] [FIXED] [CHANGED])
+    ----------------------------------------------------------------
+    local TAG_ORDER = { "REMOVED", "ADDED", "FIXED", "CHANGED" }
+
+    local TAG_COLORS = {
+        REMOVED = Color3.fromRGB(255, 99, 99),
+        ADDED = Color3.fromRGB(87, 214, 130),
+        FIXED = Color3.fromRGB(255, 193, 77),
+        CHANGED = Color3.fromRGB(92, 163, 255)
+    }
+
+    local function ToHex(Color)
+        return string.format(
+            "#%02X%02X%02X",
+            math.floor(Color.R * 255 + 0.5),
+            math.floor(Color.G * 255 + 0.5),
+            math.floor(Color.B * 255 + 0.5)
+        )
+    end
+
+    local function SortVersions()
+        local List = {}
+
+        for Version in pairs(OTC.Changelog or {}) do
+            table.insert(List, Version)
+        end
+
+        local function Parse(Version)
+            local A, B, C = tostring(Version):match("(%d+)%.(%d+)%.?(%d*)")
+            return (tonumber(A) or 0) * 1000000 + (tonumber(B) or 0) * 1000 + (tonumber(C) or 0)
+        end
+
+        table.sort(List, function(Left, Right)
+            return Parse(Left) > Parse(Right)
+        end)
+
+        return List
+    end
+
+    -- Changelog[version] = { {"ADDED", "text"}, {"FIXED", "text"}, ... }
+    -- (plain strings are accepted and shown as [CHANGED])
+    function Object._RenderChangelog(Updates, UpdatesLayout, ThemeData, Version)
+        Version = Version or OTC.Version
+
+        for _, Child in ipairs(Updates:GetChildren()) do
+            if Child:IsA("GuiObject") then
+                Child:Destroy()
+            end
+        end
+
+        -- version chips
+        local Chips = Instance.new("Frame")
+        Chips.Name = "Versions"
+        Chips.LayoutOrder = 0
+        Chips.BackgroundTransparency = 1
+        Chips.Size = UDim2.new(1, 0, 0, 24)
+        Chips.Parent = Updates
+
+        local ChipsLayout = Instance.new("UIListLayout")
+        ChipsLayout.FillDirection = Enum.FillDirection.Horizontal
+        ChipsLayout.Padding = UDim.new(0, 6)
+        ChipsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+        ChipsLayout.Parent = Chips
+
+        for Index, Name in ipairs(SortVersions()) do
+            local Active = Name == Version
+
+            local Chip = Instance.new("TextButton")
+            Chip.Name = "Chip_" .. Name
+            Chip.LayoutOrder = Index
+            Chip.AutomaticSize = Enum.AutomaticSize.X
+            Chip.Size = UDim2.fromOffset(0, 22)
+            Chip.BackgroundColor3 = Active and ThemeData.Accent or ThemeData.Secondary
+            Chip.BorderSizePixel = 0
+            Chip.AutoButtonColor = false
+            Chip.Font = Enum.Font.GothamBold
+            Chip.Text = "v" .. Name
+            Chip.TextColor3 = Active and (ThemeData.AccentText or ThemeData.Background) or ThemeData.SubText
+            Chip.TextSize = 10
+            Chip.ZIndex = 203
+            Chip.Parent = Chips
+
+            local ChipCorner = Instance.new("UICorner")
+            ChipCorner.CornerRadius = UDim.new(0, 7)
+            ChipCorner.Parent = Chip
+
+            local ChipPadding = Instance.new("UIPadding")
+            ChipPadding.PaddingLeft = UDim.new(0, 9)
+            ChipPadding.PaddingRight = UDim.new(0, 9)
+            ChipPadding.Parent = Chip
+
+            Chip.MouseButton1Click:Connect(function()
+                Object._RenderChangelog(Updates, UpdatesLayout, ThemeData, Name)
+            end)
+        end
+
+        -- entries
+        local Entries = (OTC.Changelog or {})[Version]
+
+        if type(Entries) ~= "table" or #Entries == 0 then
+            Entries = { { "CHANGED", "No changelog available for this version." } }
+        end
+
+        local Grouped = {}
+
+        for _, Entry in ipairs(Entries) do
+            local Tag, Text
+
+            if type(Entry) == "table" then
+                Tag, Text = tostring(Entry[1] or "CHANGED"):upper(), Entry[2]
+            else
+                Tag, Text = "CHANGED", Entry
+            end
+
+            if not TAG_COLORS[Tag] then
+                Tag = "CHANGED"
+            end
+
+            Grouped[Tag] = Grouped[Tag] or {}
+            table.insert(Grouped[Tag], tostring(Text))
+        end
+
+        local Order = 1
+
+        for _, Tag in ipairs(TAG_ORDER) do
+            for _, Text in ipairs(Grouped[Tag] or {}) do
+                local Row = Instance.new("TextLabel")
+                Row.Name = "Update_" .. Order
+                Row.LayoutOrder = Order
+                Row.BackgroundTransparency = 1
+                Row.AutomaticSize = Enum.AutomaticSize.Y
+                Row.Size = UDim2.new(1, 0, 0, 0)
+                Row.Font = Enum.Font.Gotham
+                Row.RichText = true
+                Row.Text = string.format(
+                    '<font color="%s"><b>[%s]</b></font>  %s',
+                    ToHex(TAG_COLORS[Tag]),
+                    Tag,
+                    (Text:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"))
+                )
+                Row.TextColor3 = ThemeData.Text
+                Row.TextSize = 12
+                Row.TextWrapped = true
+                Row.TextXAlignment = Enum.TextXAlignment.Left
+                Row.TextYAlignment = Enum.TextYAlignment.Top
+                Row.ZIndex = 203
+                Row.Parent = Updates
+
+                Order = Order + 1
+            end
+        end
+
+        Updates.CanvasPosition = Vector2.new(0, 0)
+        Updates.CanvasSize = UDim2.new(0, 0, 0, UpdatesLayout.AbsoluteContentSize.Y + 20)
+    end
+
+    ----------------------------------------------------------------
+    -- Tags next to the search button
+    ----------------------------------------------------------------
     local TagHolder = Instance.new("Frame")
     TagHolder.Name = "Tags"
     TagHolder.BackgroundTransparency = 1
     TagHolder.AnchorPoint = Vector2.new(1, 0.5)
-    TagHolder.Position = UDim2.new(1, -160, 0.5, 0)
+    TagHolder.Position = UDim2.new(1, -204, 0.5, 0)
     TagHolder.Size = UDim2.fromOffset(0, 22)
     TagHolder.AutomaticSize = Enum.AutomaticSize.X
     TagHolder.Parent = TopBar
@@ -3576,8 +4113,7 @@ function Window.Create(
         TagSettings = TagSettings or {}
 
         local CustomColor = TagSettings.Color
-        local CurrentTheme = GetTheme(self)
-        local BaseColor = CustomColor or CurrentTheme.Accent
+        local BaseColor = CustomColor or GetTheme(self).Accent
 
         local Tag = Instance.new("TextLabel")
         Tag.Name = "Tag"
@@ -3646,7 +4182,9 @@ function Window.Create(
         return TagObject
     end
 
-    -- notifications / dialogs bound to this window
+    ----------------------------------------------------------------
+    -- Notifications / dialogs / misc API
+    ----------------------------------------------------------------
     function Object:Notify(Data)
         Data = Data or {}
         Data.Window = self
@@ -3703,18 +4241,44 @@ function Window.Create(
         self:Unload()
     end
 
+    ----------------------------------------------------------------
+    -- Refresh hook
+    ----------------------------------------------------------------
     local BaseRefreshTheme = Object.RefreshTheme
 
     function Object:RefreshTheme()
         BaseRefreshTheme(self)
 
-        ApplyAccentLine(GetTheme(self))
+        local ThemeData = GetTheme(self)
+
+        ApplyLayout()
+        ApplyAccentLine(ThemeData)
+
+        SearchHolder.BackgroundColor3 = ThemeData.Element
+        SearchStroke.Color = ThemeData.Border
+        SearchBox.TextColor3 = ThemeData.Text
+        SearchBox.PlaceholderColor3 = ThemeData.SubText
+        NoResults.TextColor3 = ThemeData.SubText
 
         for _, TagObject in ipairs(self.Tags) do
             TagObject:RefreshTheme()
         end
     end
-    --// ===== end v1.0.2 additions =====
+
+    -- disconnect every tracked connection when the window is destroyed
+    ScreenGui.Destroying:Connect(function()
+        for _, Connection in ipairs(TrackedConnections) do
+            if Connection.Connected then
+                Connection:Disconnect()
+            end
+        end
+
+        table.clear(TrackedConnections)
+    end)
+
+    -- apply the layout, gradients and theme colours right away
+    Object:RefreshTheme()
+    --// ===== end v1.0.3 additions =====
 
     if OTC._InitializeInput then
 

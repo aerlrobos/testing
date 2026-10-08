@@ -1,5 +1,5 @@
 --[[
-    OTC Hub v1.0.2
+    OTC Hub v1.0.3
     Config Manager (save / load / auto-save)
     by Aerlro
 ]]

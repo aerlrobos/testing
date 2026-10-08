@@ -1,5 +1,5 @@
 --[[
-    OTC Hub v1.0.2
+    OTC Hub v1.0.3
     Popup / Dialog (modal card over a dimmed backdrop)
     by Aerlro
 ]]

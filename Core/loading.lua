@@ -145,7 +145,7 @@ function Loading.Create(Total)
     })
 
     pcall(function()
-        ScreenGui.Parent = CoreGui
+        ScreenGui.Parent = (type(gethui) == "function" and gethui()) or CoreGui
     end)
 
     if not ScreenGui.Parent then

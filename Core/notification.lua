@@ -57,6 +57,16 @@ local function IsLogoValid()
     return Success
 end
 
+local LogoStatus = nil
+
+local function GetLogoValid()
+    if LogoStatus == nil then
+        LogoStatus = IsLogoValid()
+    end
+
+    return LogoStatus
+end
+
 function Notification.Create(ScreenGui, Theme, Data)
 
     Data = Data or {}
@@ -137,10 +147,30 @@ function Notification.Create(ScreenGui, Theme, Data)
         })
     end
 
+    local Wrapper = create("Frame", {
+        Name = "NotificationHolder",
+        Parent = Holder,
+        BackgroundTransparency = 1,
+        Size = UDim2.fromOffset(330, 75)
+    })
+
+    -- keep at most 6 notifications on screen
+    local Wrappers = {}
+
+    for _, Child in ipairs(Holder:GetChildren()) do
+        if Child.Name == "NotificationHolder" then
+            table.insert(Wrappers, Child)
+        end
+    end
+
+    if #Wrappers > 6 then
+        Wrappers[1]:Destroy()
+    end
+
     local Frame = create("Frame", {
         Name = "Notification",
 
-        Parent = Holder,
+        Parent = Wrapper,
 
         BackgroundColor3 =
             Theme.Element,
@@ -288,7 +318,7 @@ function Notification.Create(ScreenGui, Theme, Data)
         Visible = false
     })
 
-    local LogoValid = IsLogoValid()
+    local LogoValid = GetLogoValid()
 
     if not LogoValid then
         LogoImage.Visible = false
@@ -562,11 +592,9 @@ function Notification.Create(ScreenGui, Theme, Data)
         })
 
         task.delay(0.3, function()
-
-            if Frame then
-                Frame:Destroy()
+            if Wrapper then
+                Wrapper:Destroy()
             end
-
         end)
 
     end

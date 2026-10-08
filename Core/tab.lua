@@ -350,10 +350,7 @@ function Tab.Create(
         CornerSettings.Element or 7
     )
 
-    applyStroke(
-        Button,
-        Theme
-    )
+    
 
     local Icon = createIcon(
         Button,
@@ -725,6 +722,10 @@ function Tab.Create(
 
         end
     )
+
+    function TabObject:Select()
+        Window:SelectTab(self)
+    end
 
     function TabObject:CreateSection(Text)
         local CurrentTheme = getTheme()
@@ -1173,10 +1174,7 @@ function Tab.Create(
                 or 7
         )
 
-        applyStroke(
-            Button,
-            CurrentTheme
-        )
+        
 
         if self.Selected then
 
