@@ -77,6 +77,8 @@ end
 
 function Slider.Create(Tab, OTC, Settings)
 
+    local InputConnections = {}
+
     Settings = Settings or {}
 
     local function getTheme()
@@ -671,7 +673,7 @@ function Slider.Create(Tab, OTC, Settings)
         end
     )
 
-    UserInputService.InputChanged:Connect(
+    table.insert(InputConnections, UserInputService.InputChanged:Connect(
         function(Input)
 
             if not Dragging then
@@ -696,9 +698,9 @@ function Slider.Create(Tab, OTC, Settings)
             end
 
         end
-    )
+    ))
 
-    UserInputService.InputEnded:Connect(
+    table.insert(InputConnections, UserInputService.InputEnded:Connect(
         function(Input)
 
             if Input.UserInputType ==
@@ -710,7 +712,7 @@ function Slider.Create(Tab, OTC, Settings)
 
             end
         end
-    )
+    ))
 
     Interaction.MouseEnter:Connect(
         function()
@@ -793,6 +795,16 @@ function Slider.Create(Tab, OTC, Settings)
 
     Object.Instance =
         Frame
+
+    Frame.AncestryChanged:Connect(function(_, Parent)
+        if not Parent then
+            for _, Connection in ipairs(InputConnections) do
+                Connection:Disconnect()
+            end
+
+            table.clear(InputConnections)
+        end
+    end)
 
     Object.Interaction =
         Interaction

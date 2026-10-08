@@ -1412,6 +1412,13 @@ function Dropdown.Create(TabObject, OTC, Settings)
 
         end
 
+        if RenderConnection then
+
+            RenderConnection:Disconnect()
+
+        end
+
+
         RenderConnection =
             RunService.RenderStepped:Connect(
                 function()

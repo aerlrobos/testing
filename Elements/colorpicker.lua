@@ -1,5 +1,5 @@
 --[[
-    OTC Hub v1.0.2
+    OTC Hub v1.0.3
     Color Picker element (saturation/value square + hue bar + hex input)
     by Aerlro
 ]]

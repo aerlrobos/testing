@@ -1,5 +1,5 @@
 --[[
-    OTC Hub v1.0.2
+    OTC Hub v1.0.3
     Progress element (read-only bar)
     by Aerlro
 ]]
