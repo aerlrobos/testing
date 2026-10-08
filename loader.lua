@@ -16,7 +16,7 @@
 
 local Env = (type(getgenv) == "function" and getgenv()) or _G
 
-local REPOSITORY = "Aerlro/OTC-Hub-v1"
+local REPOSITORY = "aerlrobos/testing"
 
 local Requested = Env.OTC_VERSION
 local Ref
@@ -41,8 +41,8 @@ end
 
 -- older versions download their modules from "main": point them to the same tag
 if Ref ~= "main" then
-    Source = Source:gsub("Aerlro/OTC%-Hub%-v1/main/", function()
-        return "Aerlro/OTC-Hub-v1/" .. Ref .. "/"
+    Source = Source:gsub("aerlrobos/testing/main/", function()
+        return "aerlrobos/testing/" .. Ref .. "/"
     end)
 end
 
