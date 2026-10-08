@@ -2,7 +2,7 @@
     OTC Hub v1.0.2 - full example
 ]]
 
-local OTC = loadstring(game:HttpGet("https://raw.githubusercontent.com/Aerlro/OTC-Hub-v1/main/otc.lua"))()
+local OTC = loadstring(game:HttpGet("https://raw.githubusercontent.com/aerlrobos/testing/refs/heads/main/otc.lua"))()
 
 local Window = OTC:CreateWindow({
     Name = "OTC Hub",
