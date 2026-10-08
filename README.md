@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <b>Version 1.0.2</b> • <b>by Aerlro</b>
+  <b>Version 1.0.3</b> • <b>by Aerlro</b>
 </p>
 
 ---
@@ -51,7 +51,50 @@
 
 ---
 
+## 🆕 What's new in 1.0.3
+
+- 🪟 New floating-island window design: sidebar, header and content are separate rounded cards
+- 🔍 Search button in the header: filters the elements of every tab
+- 🖼️ Image icons for minimize, close and search (`OTC:SetIcons({...})` to change them)
+- 📦 Version loader: load **latest** or a **specific version**
+- 📜 Changelog popup with `[REMOVED]` `[ADDED]` `[FIXED]` `[CHANGED]` tags and a version switcher
+- 🌈 Theme gradients finally work (they were ignored before) and animate
+- 🛠️ Fixes: notification slide animation, leaked input connections, double execution, tab outlines, `gethui()` support
+
+### Loading a version
+
+```lua
+-- latest version
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Aerlro/OTC-Hub-v1/main/loader.lua"))()
+
+-- a specific version
+getgenv().OTC_VERSION = "1.0.2"
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Aerlro/OTC-Hub-v1/main/loader.lua"))()
+```
+
+A specific version is downloaded from the git tag `v<version>` (for example `v1.0.2`), so create a tag / release on GitHub for every version you want to keep available.
+
+```lua
+OTC:GetVersions()      -- versions that have a changelog
+OTC:CheckForUpdates()  -- returns latestVersion, isNewer
+OTC:CreateWindow({ Name = "OTC Hub", CheckUpdates = true }) -- notifies when a newer version exists
+```
+
+### Changelog format
+
+```lua
+OTC.Changelog["1.0.3"] = {
+    { "ADDED",   "Something new" },
+    { "FIXED",   "A bug" },
+    { "CHANGED", "Something different" },
+    { "REMOVED", "Something gone" }
+}
+```
+
+---
+
 ## 🆕 What's new in 1.0.2
+
 
 - 🪟 Redesigned window: bigger (640x420), wider sidebar, animated accent line, smooth open animation
 - ⌨️ **Keybind** element (keyboard + MB2/MB3, hold mode, saved with flags)
@@ -156,8 +199,10 @@ Every element with a `Flag` is saved (toggles, sliders, inputs, dropdowns, keybi
 Load OTC Hub directly from GitHub:
 
 ```lua
-local OTC = loadstring(game:HttpGet("https://raw.githubusercontent.com/Aerlro/OTC-Hub-v1/main/otc.lua"))()
+local OTC = loadstring(game:HttpGet("https://raw.githubusercontent.com/Aerlro/OTC-Hub-v1/main/loader.lua"))()
 ```
+
+(`otc.lua` can still be loaded directly and always loads the latest version.)
 
 After loading the library, create a window:
 
@@ -871,6 +916,7 @@ MainTab:CreateButton({
 OTC-Hub-v1/
 ├── otc.lua
 ├── loader.lua
+├── version.txt
 ├── example.lua
 ├── OTC.png
 ├── Core/

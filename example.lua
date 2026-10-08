@@ -1,15 +1,17 @@
 --[[
-    OTC Hub v1.0.2 - full example
+    OTC Hub v1.0.3 - full example
 ]]
 
-local OTC = loadstring(game:HttpGet("https://raw.githubusercontent.com/aerlrobos/testing/refs/heads/main/otc.lua"))()
+-- getgenv().OTC_VERSION = "1.0.2" -- uncomment to load a specific version
+local OTC = loadstring(game:HttpGet("https://raw.githubusercontent.com/Aerlro/OTC-Hub-v1/main/loader.lua"))()
 
 local Window = OTC:CreateWindow({
     Name = "OTC Hub",
     Subtitle = "by Aerlro",
-    Theme = "Default",
+    Theme = "Aurora",
     ToggleKey = Enum.KeyCode.RightControl,
     Tags = { "Beta", { Title = "VIP", Color = Color3.fromRGB(255, 190, 60) } },
+    CheckUpdates = true,
     Configuration = {
         autoSave = true,
         autoLoad = true,

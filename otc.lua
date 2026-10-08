@@ -1,37 +1,50 @@
 --[[
-    OTC Hub v1.0.2
+    OTC Hub v1.0.3
     Main Library
     by Aerlro
 ]]
 
 local OTC = {}
 
-OTC.Version = "1.0.2"
+OTC.Version = "1.0.3"
 OTC.Name = "OTC Hub"
 
+--// Changelog: { Tag, Text } - Tag is REMOVED, ADDED, FIXED or CHANGED
 OTC.Changelog = {
+    ["1.0.3"] = {
+        { "ADDED", "New floating-island window design (sidebar, header and content are separate cards)" },
+        { "ADDED", "Search button in the header: filters the elements of every tab" },
+        { "ADDED", "Image icons for minimize, close and search" },
+        { "ADDED", "Version loader: load the latest version or any specific version" },
+        { "ADDED", "Changelog popup with [REMOVED] [ADDED] [FIXED] [CHANGED] tags and version switcher" },
+        { "ADDED", "OTC:GetVersions(), OTC:CheckForUpdates(), OTC:SetIcons()" },
+        { "ADDED", "Window header page title and a draggable sidebar header" },
+        { "FIXED", "Theme gradients were never applied (they are working now, with animation)" },
+        { "FIXED", "Private theme is now strictly owner-only (removed for everybody else)" },
+        { "FIXED", "Input connections of sliders and windows were never disconnected after unload" },
+        { "FIXED", "Executing the script twice left the old window open" },
+        { "FIXED", "Tab buttons showed an outline even when not selected" },
+        { "FIXED", "Dropdown could leak a second render connection" },
+        { "FIXED", "GUI now uses gethui() when available" },
+        { "CHANGED", "Window is now 680x440 with rounded cards" },
+        { "CHANGED", "Logo, title and subtitle moved to the top of the sidebar" },
+        { "REMOVED", "Text glyphs used as button icons" }
+    },
     ["1.0.2"] = {
-        "Brand new window design (bigger, wider sidebar, animated accent line)",
-        "Smooth open animation",
-        "New elements: Keybind, Color Picker, Progress, Divider, Paragraph, Space",
-        "Window tags (Window:CreateTag)",
-        "Dialog / Popup system (Window:Dialog)",
-        "Notification types: Success, Warning, Error, Info",
-        "Real config system: auto-save, auto-load, SaveConfig / LoadConfig",
-        "Dropdown now supports Flag",
-        "6 new themes: Midnight, Ocean, Rose, Mocha, Aurora, Light",
-        "Fixed toggle key firing twice (window was registered twice)",
-        "Auto-sizing Text element, new Section style"
+        { "ADDED", "Keybind, Color Picker, Progress, Divider, Paragraph and Space elements" },
+        { "ADDED", "Window tags, dialogs, notification types" },
+        { "ADDED", "Config system: auto-save, auto-load, SaveConfig / LoadConfig" },
+        { "ADDED", "6 new themes: Midnight, Ocean, Rose, Mocha, Aurora, Light" },
+        { "FIXED", "Toggle key fired twice because the window was registered twice" },
+        { "FIXED", "OTC:RegisterTheme did not exist" },
+        { "FIXED", "Dropdown did not support Flag" },
+        { "CHANGED", "Bigger window, wider sidebar, animated accent line" }
     },
     ["1.0.1"] = {
-        "New Halloween loading screen",
-        "Animated Halloween decorations",
-        "Improved loading screen fade-out",
-        "Advanced Theme System improvements",
-        "Animated gradients",
-        "Version badge",
-        "Improved unload confirmation",
-        "Improved UI animations"
+        { "ADDED", "Halloween loading screen and animated decorations" },
+        { "ADDED", "Version badge and animated gradients" },
+        { "CHANGED", "Improved unload confirmation and UI animations" },
+        { "CHANGED", "Advanced theme system improvements" }
     }
 }
 
@@ -41,8 +54,34 @@ local UserInputService = game:GetService("UserInputService")
 
 local LocalPlayer = Players.LocalPlayer
 
-local BASE_URL =
-    "https://raw.githubusercontent.com/aerlrobos/testing/main/"
+local Env = (type(getgenv) == "function" and getgenv()) or _G
+
+--// Reference used to download the modules ("main" = latest, or a tag like "v1.0.2").
+--// The loader sets Env.OTC_REF for you.
+local REF = Env.OTC_REF or "main"
+Env.OTC_REF = nil -- only valid for this execution
+local REPOSITORY = "Aerlro/OTC-Hub-v1"
+local BASE_URL = "https://raw.githubusercontent.com/" .. REPOSITORY .. "/" .. REF .. "/"
+
+OTC.Ref = REF
+
+--// Remove the previous instance if the script is executed again
+do
+    local Previous = Env.__OTC_HUB
+
+    if type(Previous) == "table" and type(Previous.Destroy) == "function" then
+        pcall(function()
+            Previous:Destroy()
+        end)
+    end
+end
+
+--// Image icons used by the window (rbxassetid)
+OTC.Icons = {
+    Minimize = "rbxassetid://123120037399918",
+    Close = "rbxassetid://97642116681622",
+    Search = "rbxassetid://122340561776969"
+}
 
 OTC._Windows = {}
 OTC._Themes = {}
@@ -123,7 +162,13 @@ local function LoadModule(Path)
 
     if not Result then
         Loading:Update(Loading.Current, "Failed to load module", Path)
-        task.wait(0.25)
+
+        task.delay(4, function()
+            pcall(function()
+                Loading:Destroy()
+            end)
+        end)
+
         error("[OTC Hub] " .. Err)
     end
 
@@ -157,8 +202,16 @@ function OTC:RegisterTheme(Name, ThemeData)
     return ThemeModule:Register(Name, ThemeData)
 end
 
+local function ThemeAllowed(Name)
+    if ThemeModule.IsPrivate(Name) and not ThemeModule.IsOwner() then
+        return false
+    end
+
+    return OTC._Themes[Name] ~= nil
+end
+
 function OTC:SetTheme(Name)
-    if not self._Themes[Name] then
+    if not ThemeAllowed(Name) then
         warn("[OTC Hub] Theme does not exist:", Name)
         return false
     end
@@ -355,12 +408,61 @@ function OTC:DeleteConfig(Name)
     return GetConfig():Delete(Name)
 end
 
+--// Versions
+local function ParseVersion(Version)
+    local A, B, C = tostring(Version):match("(%d+)%.(%d+)%.?(%d*)")
+
+    return (tonumber(A) or 0) * 1000000 + (tonumber(B) or 0) * 1000 + (tonumber(C) or 0)
+end
+
+function OTC:GetVersions()
+    local List = {}
+
+    for Version in pairs(self.Changelog) do
+        table.insert(List, Version)
+    end
+
+    table.sort(List, function(Left, Right)
+        return ParseVersion(Left) > ParseVersion(Right)
+    end)
+
+    return List
+end
+
+--// Returns latestVersion, isNewer  (nil if the check failed)
+function OTC:CheckForUpdates()
+    local Success, Result = pcall(function()
+        return game:HttpGet(
+            "https://raw.githubusercontent.com/" .. REPOSITORY .. "/main/version.txt"
+        )
+    end)
+
+    if not Success or type(Result) ~= "string" then
+        return nil
+    end
+
+    local Latest = Result:match("%d+%.%d+%.?%d*")
+
+    if not Latest then
+        return nil
+    end
+
+    return Latest, ParseVersion(Latest) > ParseVersion(self.Version)
+end
+
+--// Change the image icons: OTC:SetIcons({ Close = "rbxassetid://..." }) before CreateWindow
+function OTC:SetIcons(Icons)
+    for Name, Image in pairs(Icons or {}) do
+        self.Icons[Name] = tostring(Image)
+    end
+end
+
 --// Window
 function OTC:CreateWindow(Settings)
     Settings = Settings or {}
 
     if Settings.Theme then
-        if not self._Themes[Settings.Theme] then
+        if not ThemeAllowed(Settings.Theme) then
             warn("[OTC Hub] Theme does not exist:", Settings.Theme, "| Using Default")
             Settings.Theme = "Default"
         end
@@ -404,6 +506,21 @@ function OTC:CreateWindow(Settings)
                 self:SetTheme(SavedTheme)
             end
         end
+    end
+
+    if Settings.CheckUpdates == true then
+        task.spawn(function()
+            local Latest, IsNewer = self:CheckForUpdates()
+
+            if Latest and IsNewer then
+                Window:Notify({
+                    Type = "Info",
+                    Title = "Update available",
+                    Content = "v" .. Latest .. " is out (you are on v" .. self.Version .. ")",
+                    Duration = 6
+                })
+            end
+        end)
     end
 
     return Window
@@ -460,6 +577,8 @@ function OTC:InitializeInput()
 end
 
 OTC:InitializeInput()
+
+Env.__OTC_HUB = OTC
 
 --// Finish Loading
 Loading:Finish()
