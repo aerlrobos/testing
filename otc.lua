@@ -60,7 +60,7 @@ local Env = (type(getgenv) == "function" and getgenv()) or _G
 --// The loader sets Env.OTC_REF for you.
 local REF = Env.OTC_REF or "main"
 Env.OTC_REF = nil -- only valid for this execution
-local REPOSITORY = "Aerlro/OTC-Hub-v1"
+local REPOSITORY = "aerlrobos/testing"
 local BASE_URL = "https://raw.githubusercontent.com/" .. REPOSITORY .. "/" .. REF .. "/"
 
 OTC.Ref = REF
