@@ -3,7 +3,7 @@
 ]]
 
 -- getgenv().OTC_VERSION = "1.0.2" -- uncomment to load a specific version
-local OTC = loadstring(game:HttpGet("https://raw.githubusercontent.com/Aerlro/OTC-Hub-v1/main/loader.lua"))()
+local OTC = loadstring(game:HttpGet("https://raw.githubusercontent.com/aerlrobos/testing/main/loader.lua"))()
 
 local Window = OTC:CreateWindow({
     Name = "OTC Hub",
