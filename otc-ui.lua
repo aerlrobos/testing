@@ -1,11 +1,8 @@
 --[[
-    OTC UI v1.0.5
-    Aerlro / OTC UI integration layer for WindUI.
-
+    OTC UI v1.0.6
+    Native WindUI runtime + OTC defaults and Roman Reigns theme.
     WindUI upstream: https://github.com/Footagesus/WindUI
     Upstream license: MIT (see LICENSE-WindUI.txt)
-
-    The full WindUI runtime is loaded from the official, pinned 1.6.66 release.
 ]]
 
 local Players = game:GetService("Players")
@@ -13,7 +10,7 @@ local LocalPlayer = Players.LocalPlayer
 
 local WINDUI_VERSION = "1.6.66"
 local WINDUI_RELEASE_URL = "https://github.com/Footagesus/WindUI/releases/download/" .. WINDUI_VERSION .. "/main.lua"
-local OTC_VERSION = "1.0.5"
+local OTC_VERSION = "1.0.6"
 local ROMAN_USER_IDS = {
     [572117566] = true,
 }
@@ -23,18 +20,16 @@ local function isRomanThemeAllowed()
     return LocalPlayer ~= nil and ROMAN_USER_IDS[LocalPlayer.UserId] == true
 end
 
-local source
-local ok, result = pcall(function()
+local ok, source = pcall(function()
     return game:HttpGet(WINDUI_RELEASE_URL)
 end)
-if not ok or type(result) ~= "string" or #result == 0 then
-    error("[OTC UI] Unable to download WindUI " .. WINDUI_VERSION .. ". Check executor HTTP access and try again.")
+if not ok or type(source) ~= "string" or #source == 0 then
+    error("[OTC UI] Unable to download WindUI " .. WINDUI_VERSION .. ". Check HTTP access.")
 end
-source = result
 
 local loader, compileError = loadstring(source)
 if not loader then
-    error("[OTC UI] WindUI loader compilation failed: " .. tostring(compileError))
+    error("[OTC UI] WindUI compilation failed: " .. tostring(compileError))
 end
 
 local WindUI = loader()
@@ -64,11 +59,31 @@ local RomanTheme = {
     ElementBackgroundTransparency = 0,
 }
 
--- Private theme: it is not registered at all for other user IDs.
 if isRomanThemeAllowed() and type(WindUI.AddTheme) == "function" then
     pcall(function()
         WindUI:AddTheme(RomanTheme)
     end)
+end
+
+-- Preserve WindUI's native CreateWindow implementation and all native elements.
+-- For the authorized account only, provide Roman Reigns theme and image as defaults.
+local originalCreateWindow = WindUI.CreateWindow
+if type(originalCreateWindow) == "function" then
+    WindUI.CreateWindow = function(self, config)
+        config = type(config) == "table" and config or {}
+        if isRomanThemeAllowed() then
+            if config.Theme == nil then
+                config.Theme = "Roman Reigns"
+            end
+            if config.Background == nil then
+                config.Background = ROMAN_IMAGE
+            end
+            if config.BackgroundImageTransparency == nil then
+                config.BackgroundImageTransparency = 0.72
+            end
+        end
+        return originalCreateWindow(self, config)
+    end
 end
 
 WindUI.OTCUI = {
@@ -88,7 +103,7 @@ WindUI.OTCUI = {
             warn("[OTC UI] Roman Reigns theme is private and unavailable for this account.")
             return false
         end
-        if not WindUI.SetTheme then
+        if type(WindUI.SetTheme) ~= "function" then
             return false
         end
         return WindUI:SetTheme(themeName) ~= nil
