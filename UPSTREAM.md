@@ -1,8 +1,15 @@
-# Upstream and attribution
+# Upstream and license
 
-Project: https://github.com/Footagesus/WindUI
-Pinned release used by `otc-ui.lua`: 1.6.66
-Release bundle: https://github.com/Footagesus/WindUI/releases/download/1.6.66/main.lua
-License: MIT (see `LICENSE-WindUI.txt`).
+OTC UI uses the official WindUI runtime by Footagesus:
+https://github.com/Footagesus/WindUI
 
-WindUI is authored by Footagesus. This project integrates the official build at runtime and adds OTC UI branding plus the Roman Reigns theme integration. The complete WindUI bundle is not duplicated in this ZIP; the loader downloads it from the upstream release URL.
+Pinned release:
+https://github.com/Footagesus/WindUI/releases/download/1.6.66/main.lua
+
+Documentation reviewed:
+- https://footagesus.github.io/WindUI-Docs/docs/window
+- https://footagesus.github.io/WindUI-Docs/docs/theme
+- https://footagesus.github.io/WindUI-Docs/docs/configs
+- https://footagesus.github.io/treehub-web/docs/windui/loadstring
+
+WindUI is MIT-licensed. Preserve its license and attribution when redistributing upstream code. OTC UI is a customization layer and does not claim authorship of WindUI. The upstream runtime is downloaded at execution time and is not embedded in this package.
